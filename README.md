@@ -1,0 +1,2 @@
+# FastAPICrud
+CRUD using FastAPI
