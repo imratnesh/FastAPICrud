@@ -1,56 +1,20 @@
-from typing import List
-
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI
+from app.api.movies import movies
+from app.api.db import metadata, engine, database
 
 app = FastAPI()
 
-fake_movie_db = [
-    {
-        'name': 'Star Wars: Episode IX - The Rise of Skywalker',
-        'plot': 'The surviving members of the resistance face the First Order once again.',
-        'genres': ['Action', 'Adventure', 'Fantasy'],
-        'casts': ['Daisy Ridley', 'Adam Driver']
-    }
-]
+metadata.create_all(engine)
 
 
-class Movie(BaseModel):
-    name: str
-    plot: str
-    genres: List[str]
-    casts: List[str]
+@app.on_event("startup")
+async def startup():
+    await database.connect()
 
 
-@app.get('/', response_model=List[Movie])
-async def index():
-    return fake_movie_db
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()
 
 
-@app.post('/', status_code=201)
-async def add_movie(payload: Movie):
-    movie = payload.dict()
-    fake_movie_db.append(movie)
-    return {'id': len(fake_movie_db) - 1}
-
-
-@app.put('/{id}')
-async def update_movie(id: int, payload: Movie):
-    movie = payload.dict()
-    movies_length = len(fake_movie_db)
-    if 0 <= id <= movies_length:
-        fake_movie_db[id] = movie
-        return None
-    raise HTTPException(status_code=404, detail="Movie with given id not found")
-
-
-@app.delete('/{id}')
-async def delete_movie(id: int):
-    movies_length = len(fake_movie_db)
-    print(movies_length)
-    if 0 <= id <= movies_length:   # in range
-        print(fake_movie_db)
-        del fake_movie_db[id]
-        print(fake_movie_db)
-        return None
-    raise HTTPException(status_code=404, detail="Movie with given id not found")
+app.include_router(movies)
